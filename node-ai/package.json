@@ -2,14 +2,21 @@
   "name": "node-ai",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
   "dependencies": {
+    "@langchain/community": "^1.0.4",
+    "@langchain/core": "^1.0.6",
+    "@langchain/ollama": "^1.0.1",
+    "@langchain/textsplitters": "^1.0.0",
     "cors": "^2.8.5",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "hnswlib-node": "^3.0.0",
+    "langchain": "^1.0.6"
   },
   "author": "",
   "license": "ISC"
