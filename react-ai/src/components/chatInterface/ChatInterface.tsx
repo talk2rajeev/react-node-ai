@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, type FormEvent } from 'react';
 import { marked } from 'marked';
-import { Send, MessageSquare, CornerDownLeft, X, Maximize, Minimize } from 'lucide-react';
+import { Send, MessageSquare, CornerDownLeft, X, Maximize, Minimize, Paperclip } from 'lucide-react';
 
 // Define the shape of a chat message
 interface Message {
@@ -19,6 +19,8 @@ const ChatInterface: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -85,6 +87,59 @@ const ChatInterface: React.FC = () => {
     }
   }, [input, isLoading, messages]);
 
+  // Handle file upload
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Add system message about upload
+    const uploadMessage: Message = {
+      id: Date.now(),
+      role: 'assistant',
+      content: `📎 Uploading **${file.name}**...`,
+    };
+    setMessages((prev) => [...prev, uploadMessage]);
+
+    try {
+      const response = await fetch('http://localhost:3000/api/ingest-sheet', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      
+      // Success message
+      const successMessage: Message = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: `✅ **${data.filename}** uploaded successfully! (${data.chunks} chunks ingested)\n\nYou can now ask questions about the file.`,
+      };
+      setMessages((prev) => [...prev.slice(0, -1), successMessage]);
+      setUploadedFiles((prev) => [...prev, data.filename]);
+
+    } catch (error) {
+      console.error('File upload error:', error);
+      const errorMessage: Message = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: `❌ Failed to upload **${file.name}**. Please try again.`,
+      };
+      setMessages((prev) => [...prev.slice(0, -1), errorMessage]);
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
   // Toggle function for the chat box
   const toggleChat = () => {
     setIsOpen(!isOpen);
@@ -99,10 +154,9 @@ const ChatInterface: React.FC = () => {
     setIsMaximized(!isMaximized);
   };
 
-  // Define dynamic class names based on the maximized state
   const chatBoxClasses = isMaximized
     ? 'top-0 left-0 w-full h-full max-w-full max-h-full rounded-none' // Full Screen
-    : 'bottom-20 right-4 w-full max-w-sm h-[80vh] max-h-[600px]'; // Normal Size
+    : 'bottom-10 right-4 w-full max-w-lg h-[80vh] max-h-[600px]'; // Normal Size (~512px)
 
   return (
     <>
@@ -183,24 +237,60 @@ const ChatInterface: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area (remains the same) */}
-        <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 flex">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={isLoading}
-            placeholder="Send a message..."
-            className="flex-1 p-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="p-3 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors duration-150"
-            aria-label="Send Query"
-          >
-            {isLoading ? <CornerDownLeft size={20} /> : <Send size={20} />}
-          </button>
+        {/* Input Area with File Upload */}
+        <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200">
+          {/* File Upload Display */}
+          {uploadedFiles.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {uploadedFiles.map((filename, idx) => (
+                <span key={idx} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                  📎 {filename}
+                </span>
+              ))}
+            </div>
+          )}
+          
+          {/* Input Row */}
+          <div className="flex gap-2">
+            {/* Hidden File Input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileUpload}
+              accept=".csv,.xlsx,.xls,.docx,.txt"
+              className="hidden"
+            />
+            
+            {/* File Upload Button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-3 text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors duration-150"
+              aria-label="Upload File"
+            >
+              <Paperclip size={20} />
+            </button>
+            
+            {/* Text Input */}
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={isLoading}
+              placeholder="Send a message..."
+              className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+            
+            {/* Send Button */}
+            <button
+              type="submit"
+              disabled={!input.trim() || isLoading}
+              className="p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors duration-150"
+              aria-label="Send Query"
+            >
+              {isLoading ? <CornerDownLeft size={20} /> : <Send size={20} />}
+            </button>
+          </div>
         </form>
       </div>
     </>
