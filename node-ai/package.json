@@ -14,9 +14,13 @@
     "@langchain/ollama": "^1.0.1",
     "@langchain/textsplitters": "^1.0.0",
     "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
     "express": "^5.1.0",
     "hnswlib-node": "^3.0.0",
-    "langchain": "^1.0.6"
+    "langchain": "^1.0.6",
+    "mammoth": "^1.11.0",
+    "multer": "^2.0.2",
+    "xlsx": "^0.18.5"
   },
   "author": "",
   "license": "ISC"
